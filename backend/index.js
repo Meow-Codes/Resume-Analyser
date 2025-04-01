@@ -22,16 +22,16 @@ const skillAliases = {
     "Data Science": ["DS"],
     "MongoDB": ["Mongo", "Mongodb"],
     "PostgreSQL": ["Postgres", "Postgre"],
-    "Angular": ["Angular JS", "AngularJS"],
-    "Express": ["Express.js", "Express JS"]
+    "Angular JS": ["Angular", "AngularJS", "Angular.js"],
+    "Express JS": ["Express.js", "Express", "ExpressJS"]
 };
 
 const skillset = new Set([
     "C", "C++", "Java", "JavaScript", "Python", "React",
     "Node.js", "MongoDB", "SQL", "PostgreSQL",
     "Machine Learning", "Artificial Intelligence", "Data Science",
-    "Docker", "Kubernetes", "Angular", "Express"
-]);
+    "Docker", "Kubernetes", "Angular JS", "Express JS"
+]); 
 
 const extractSkills = (text) => {
     console.log("Raw text:", text);
@@ -86,21 +86,24 @@ app.post("/extracted-skills", async (req, res) => {
 });
 
 app.post("/match-jobs", async (req, res) => {
-    const { skills } = req.body;
+    const { skills, threshold = 40 } = req.body;
     if (!skills || !Array.isArray(skills)) return res.status(400).json({ message: "Skills array is required" });
+    if (typeof threshold !== "number" || threshold < 0 || threshold > 100) {
+        return res.status(400).json({ message: "Threshold must be a number between 0 and 100" });
+    }
     try {
         const jobs = await Job.find();
         console.log("Jobs fetched from DB:", jobs);
         const matchedJobs = jobs.map(job => {
             const matchedSkills = job.skills.filter(skill => skills.includes(skill));
-            const matchPercentage = (matchedSkills.length / job.skills.length) * 100;
+            const matchPercentage = job.skills.length > 0 ? (matchedSkills.length / job.skills.length) * 100 : 0;
             return {
                 title: job.title,
                 matchPercentage: matchPercentage.toFixed(2),
                 matchedSkills,
                 missingSkills: job.skills.filter(skill => !skills.includes(skill))
             };
-        }).filter(job => job.matchPercentage >= 40);
+        }).filter(job => parseFloat(job.matchPercentage) >= threshold);
         matchedJobs.sort((a, b) => parseFloat(b.matchPercentage) - parseFloat(a.matchPercentage));
         console.log("Matched Jobs:", matchedJobs);
         res.json(matchedJobs);
@@ -151,6 +154,28 @@ app.post("/upload-jd", async (req, res) => {
     } catch (err) {
         console.error("Error in /upload-jd:", err);
         res.status(500).json({ message: "Error saving job data", error: err.message });
+    }
+});
+
+app.post("/refresh-db", async (req, res) => {
+    const { target } = req.body;
+    try {
+        if (!target || !["jobs", "users", "both"].includes(target)) {
+            return res.status(400).json({ message: "Invalid target, use 'users', 'jobs', or 'both'" });
+        }
+        if (target === "jobs" || target === "both") {
+            await Job.deleteMany({});
+            console.log("Jobs database has been cleared");
+        }
+        if (target === "users" || target === "both") {
+            await User.deleteMany({});
+            console.log("Users database has been cleared");
+        }
+        console.log(`Database has been refreshed for ${target}`);
+        res.status(200).json({ message: `Database has been refreshed for ${target}` });
+    } catch (err) {
+        console.error("Error in refreshing the requested Database:", err);
+        res.status(500).json({ message: "Error in refreshing the requested Database", error: err.message });
     }
 });
 
