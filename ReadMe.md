@@ -25,8 +25,6 @@ A smart full-stack application that allows recruiters to upload resumes, analyze
 | **Node.js**    | Backend server               |
 | **Express.js** | API development              |
 | **MongoDB**    | Database                     |
-| **JWT**        | Authentication & Authorization |
-| **Python**     | Resume parsing (optional future integration) |
 
 ---
 
